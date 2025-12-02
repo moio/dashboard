@@ -40,8 +40,24 @@ export default {
       registryProvider = 'Artifactory';
     }
 
-    const username = auths[registryUrl]?.username || '';
-    const password = auths[registryUrl]?.password || '';
+    const authData = auths[registryUrl] || {};
+    let username = authData.username || '';
+    let password = authData.password || '';
+
+    // If username/password are not present, try to decode from auth field
+    if (!username && !password && authData.auth) {
+      try {
+        const decoded = atob(authData.auth);
+        const colonIndex = decoded.indexOf(':');
+
+        if (colonIndex !== -1) {
+          username = decoded.substring(0, colonIndex);
+          password = decoded.substring(colonIndex + 1);
+        }
+      } catch (e) {
+        // If decoding fails, keep empty values
+      }
+    }
 
     return {
       registryProvider,
