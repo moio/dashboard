@@ -385,7 +385,7 @@ export default {
      * For project groups, checks if the user has update permissions on that specific project.
      */
     canCreateNamespaceInProject(group) {
-      const project = group.rows[0]?.project;
+      const project = group.rows?.[0]?.project;
 
       // For "Not in a Project" group or groups without a project, use the global schema check
       if (!project) {

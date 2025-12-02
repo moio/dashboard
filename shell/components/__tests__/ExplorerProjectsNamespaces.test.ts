@@ -7,7 +7,7 @@ describe('explorerProjectsNamespaces', () => {
      * by calling the method with the necessary context
      */
     const testCanCreateNamespaceInProject = (
-      group: { rows: Array<{ project?: { canUpdate?: boolean } | null }> },
+      group: { rows?: Array<{ project?: { canUpdate?: boolean } | null }> },
       isNamespaceCreatable: boolean
     ): boolean => {
       const context = { isNamespaceCreatable };
@@ -47,6 +47,13 @@ describe('explorerProjectsNamespaces', () => {
 
     it('should use global isNamespaceCreatable check when project is undefined', () => {
       const group = { rows: [{}] }; // no project property
+
+      expect(testCanCreateNamespaceInProject(group, true)).toBe(true);
+      expect(testCanCreateNamespaceInProject(group, false)).toBe(false);
+    });
+
+    it('should use global isNamespaceCreatable check when rows is empty', () => {
+      const group = { rows: [] }; // empty rows array
 
       expect(testCanCreateNamespaceInProject(group, true)).toBe(true);
       expect(testCanCreateNamespaceInProject(group, false)).toBe(false);
