@@ -149,7 +149,7 @@ export const actions = {
       force = true;
     }
 
-    const providers = dispatch('rancher/findAll', {
+    return dispatch('rancher/findAll', {
       type: 'authProvider',
       opt:  {
         url:   `/v1-public/authproviders`,
@@ -157,8 +157,6 @@ export const actions = {
         force
       }
     }, { root: true });
-
-    return providers;
   },
 
   getAuthConfigs({ dispatch }) {
