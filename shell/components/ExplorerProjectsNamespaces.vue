@@ -379,22 +379,6 @@ export default {
 
       return !!project;
     },
-    /**
-     * Check if the user can create a namespace in the project associated with this group.
-     * For "Not in a Project" group or groups without a project, falls back to global namespace creation check.
-     * For project groups, checks if the user has update permissions on that specific project.
-     */
-    canCreateNamespaceInProject(group) {
-      const project = group.rows?.[0]?.project;
-
-      // For "Not in a Project" group or groups without a project, use the global schema check
-      if (!project) {
-        return this.isNamespaceCreatable;
-      }
-
-      // For project groups, check if the project allows updates (indicates member-level access)
-      return project.canUpdate;
-    },
     projectLabel(group) {
       const row = group.rows[0];
 
@@ -512,7 +496,7 @@ export default {
           </div>
           <div class="right mr-10">
             <router-link
-              v-if="canCreateNamespaceInProject(group.group) && (canSeeProjectlessNamespaces || group.group.key !== notInProjectKey)"
+              v-if="isNamespaceCreatable && (canSeeProjectlessNamespaces || group.group.key !== notInProjectKey)"
               class="create-namespace btn btn-sm role-secondary mr-5"
               :to="createNamespaceLocation(group.group)"
             >
