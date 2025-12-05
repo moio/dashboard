@@ -21,8 +21,6 @@ import { nodeDriveResponse } from '@/cypress/e2e/tests/pages/manager/mock-respon
 import TabbedPo from '@/cypress/e2e/po/components/tabbed.po';
 import LoadingPo from '@/cypress/e2e/po/components/loading.po';
 import { EXTRA_LONG_TIMEOUT_OPT, MEDIUM_TIMEOUT_OPT } from '@/cypress/support/utils/timeouts';
-// import KontainerDriversPagePo from '@/cypress/e2e/po/pages/cluster-manager/kontainer-drivers.po';
-// import DeactivateDriverDialogPo from '@/cypress/e2e/po/prompts/deactivateDriverDialog.po';
 import { USERS_BASE_URL } from '@/cypress/support/utils/api-endpoints';
 
 // At some point these will come from somewhere central, then we can make tools to remove resources from this or all runs
@@ -36,7 +34,6 @@ const importType = 'cluster';
 const clusterNamePartial = `${ runPrefix }-create`;
 const rke2CustomName = `${ clusterNamePartial }-rke2-custom`;
 const importGenericName = `${ clusterNamePartial }-import-generic`;
-const reenableAKS = false;
 
 const downloadsFolder = Cypress.config('downloadsFolder');
 
@@ -48,90 +45,88 @@ describe('Cluster Manager', { testIsolation: 'off', tags: ['@manager', '@adminUs
     cy.login();
   });
 
-  // Revert commented out tests as part of https://github.com/rancher/dashboard/issues/15391
+  // Tests for kev2-operators setting that controls hosted provider visibility
+  // Replaces the old kontainer driver tests per https://github.com/rancher/dashboard/issues/15391
 
-  // it('deactivating a kontainer driver should hide its card from the cluster creation page', () => {
-  //   cy.intercept('GET', '/v3/kontainerdrivers').as('getKontainerDrivers');
-  //   cy.intercept('POST', 'v3/kontainerDrivers/azurekubernetesservice?action=deactivate').as('deactivateDriver');
-  //   cy.intercept('POST', 'v3/kontainerDrivers/azurekubernetesservice?action=activate').as('activateDriver');
+  it('disabling a provider via kev2 setting should hide its card from the cluster creation page', () => {
+    // Mock the kev2-operators setting to have AKS disabled
+    cy.intercept('GET', '/v1/management.cattle.io.settings/kev2-operators', {
+      statusCode: 200,
+      body:       {
+        id:    'kev2-operators',
+        value: JSON.stringify([{ name: 'aks', active: false }])
+      }
+    }).as('kev2SettingAksDisabled');
 
-  //   const driversPage = new KontainerDriversPagePo();
-  //   const clusterCreatePage = new ClusterManagerCreatePagePo();
+    const clusterCreatePage = new ClusterManagerCreatePagePo();
 
-  //   KontainerDriversPagePo.navTo();
-  //   driversPage.waitForPage();
+    // Verify that the AKS card is not shown when disabled via kev2 setting
+    clusterList.goTo();
+    clusterList.checkIsCurrentPage();
+    clusterList.createCluster();
 
-  //   // assert AKS kontainer driver is in Active state
-  //   cy.wait('@getKontainerDrivers').then(({ response }) => {
-  //     response.body.data.forEach((item: any) => {
-  //       if (item.id === 'azurekubernetesservice') {
-  //         const state = item['active'];
+    clusterCreatePage.waitForPage();
+    cy.wait('@kev2SettingAksDisabled');
 
-  //         expect(state).to.eq(true);
-  //       }
-  //     });
-  //   });
+    clusterCreatePage.gridElementExistanceByName('Azure AKS', 'not.exist');
+  });
 
-  //   // deactivate the AKS driver
-  //   driversPage.list().actionMenu('Azure AKS').getMenuItem('Deactivate').click();
-  //   const deactivateDialog = new DeactivateDriverDialogPo();
+  it('enabling a provider via kev2 setting should show its card on the cluster creation page', () => {
+    // Mock the kev2-operators setting to have AKS enabled
+    cy.intercept('GET', '/v1/management.cattle.io.settings/kev2-operators', {
+      statusCode: 200,
+      body:       {
+        id:    'kev2-operators',
+        value: JSON.stringify([{ name: 'aks', active: true }])
+      }
+    }).as('kev2SettingAksEnabled');
 
-  //   deactivateDialog.deactivate();
-  //   cy.wait('@deactivateDriver').its('response.statusCode').should('eq', 200).then(() => {
-  //     reenableAKS = true;
-  //   });
+    const clusterCreatePage = new ClusterManagerCreatePagePo();
 
-  //   // verify that the AKS card is not shown
-  //   clusterList.goTo();
-  //   clusterList.checkIsCurrentPage();
-  //   clusterList.createCluster();
-  //   clusterCreatePage.gridElementExistanceByName('Azure AKS', 'not.exist');
+    // Verify that the AKS card is shown when enabled via kev2 setting
+    clusterList.goTo();
+    clusterList.checkIsCurrentPage();
+    clusterList.createCluster();
 
-  //   // re-enable the AKS kontainer driver
-  //   KontainerDriversPagePo.navTo();
-  //   driversPage.waitForPage();
-  //   driversPage.list().actionMenu('Azure AKS').getMenuItem('Activate').click();
-  //   cy.wait('@activateDriver').its('response.statusCode').should('eq', 200).then(() => {
-  //     reenableAKS = false;
-  //   });
+    clusterCreatePage.waitForPage();
+    cy.wait('@kev2SettingAksEnabled');
 
-  //   // verify that the AKS card is back
-  //   clusterList.goTo();
-  //   clusterList.checkIsCurrentPage();
-  //   clusterList.createCluster();
-  //   clusterCreatePage.gridElementExistanceByName('Azure AKS', 'exist');
-  // });
+    clusterCreatePage.gridElementExistanceByName('Azure AKS', 'exist');
+  });
 
-  // it('deleting a kontainer driver should hide its card from the cluster creation page', () => {
-  //   // intercept get request for kontainer drivers
-  //   cy.intercept('GET', '/v1/management.cattle.io.kontainerdriver*', (req) => {
-  //     req.reply( {
-  //       type:         'collection',
-  //       resourceType: 'management.cattle.io.kontainerdriver',
-  //       count:        0,
-  //       data:         []
-  //     });
-  //   } ).as('kontainerDrivers');
+  it('all hosted providers disabled via kev2 setting should hide their cards from cluster creation page', () => {
+    // Mock the kev2-operators setting to have all hosted providers disabled
+    cy.intercept('GET', '/v1/management.cattle.io.settings/kev2-operators', {
+      statusCode: 200,
+      body:       {
+        id:    'kev2-operators',
+        value: JSON.stringify([
+          { name: 'aks', active: false },
+          { name: 'eks', active: false },
+          { name: 'gke', active: false }
+        ])
+      }
+    }).as('kev2SettingAllDisabled');
 
-  //   const clusterCreatePage = new ClusterManagerCreatePagePo();
+    const clusterCreatePage = new ClusterManagerCreatePagePo();
 
-  //   // verify that the AKS card is not shown
-  //   clusterList.goTo();
-  //   clusterList.checkIsCurrentPage();
-  //   clusterList.createCluster();
+    // Verify that all hosted provider cards are not shown
+    clusterList.goTo();
+    clusterList.checkIsCurrentPage();
+    clusterList.createCluster();
 
-  //   clusterCreatePage.waitForPage();
-  //   cy.wait('@kontainerDrivers');
+    clusterCreatePage.waitForPage();
+    cy.wait('@kev2SettingAllDisabled');
 
-  //   clusterCreatePage.gridElementExistanceByName('Azure AKS', 'not.exist');
+    clusterCreatePage.gridElementExistanceByName('Azure AKS', 'not.exist');
+    clusterCreatePage.gridElementExistanceByName('Amazon EKS', 'not.exist');
+    clusterCreatePage.gridElementExistanceByName('Google GKE', 'not.exist');
 
-  //   clusterCreatePage.gridElementGroupTitles().should('have.length', 2);
-
-  //   clusterCreatePage.gridElementGroupTitles().eq(0).should('not.contain.text', 'Create a cluster');
-
-  //   clusterCreatePage.gridElementGroupTitles().eq(0).should('contain.text', 'Provision new nodes');
-  //   clusterCreatePage.gridElementGroupTitles().eq(1).should('contain.text', 'Use existing nodes');
-  // });
+    // The page should still show the non-hosted provider sections
+    clusterCreatePage.gridElementGroupTitles().should('have.length.gte', 2);
+    clusterCreatePage.gridElementGroupTitles().eq(0).should('contain.text', 'Provision new nodes');
+    clusterCreatePage.gridElementGroupTitles().eq(1).should('contain.text', 'Use existing nodes');
+  });
 
   describe('RKE2 providers', () => {
     providersList.forEach((prov) => {
@@ -793,12 +788,6 @@ describe('Cluster Manager', { testIsolation: 'off', tags: ['@manager', '@adminUs
         clusterCreate.credentialsBanner().checkNotExists();
       });
     });
-  });
-
-  after(() => {
-    if (reenableAKS) {
-      cy.createRancherResource('v3', 'kontainerDrivers/azurekubernetesservice?action=activate', {});
-    }
   });
 });
 
