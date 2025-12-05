@@ -55,9 +55,37 @@ export const useDockerBasic = (resource: any) => {
   const dockerRegistry = useDockerRegistry(resource);
 
   return computed(() => {
+    const authData = dockerAuths.value[dockerRegistry.value.registryUrl] || {};
+
+    // If username and password are directly available, use them
+    if (authData.username !== undefined && authData.password !== undefined) {
+      return {
+        username: authData.username,
+        password: authData.password,
+      };
+    }
+
+    // Otherwise, try to decode from the auth field (base64 encoded "username:password")
+    if (authData.auth) {
+      try {
+        const decoded = base64Decode(authData.auth);
+        const colonIndex = decoded.indexOf(':');
+
+        if (colonIndex !== -1) {
+          return {
+            username: decoded.substring(0, colonIndex),
+            password: decoded.substring(colonIndex + 1),
+          };
+        }
+      } catch (e) {
+        // If decoding fails, fall through to return empty values
+      }
+    }
+
+    // Return empty values if neither format is available
     return {
-      username: dockerAuths.value[dockerRegistry.value.registryUrl].username,
-      password: dockerAuths.value[dockerRegistry.value.registryUrl].password,
+      username: '',
+      password: '',
     };
   });
 };
