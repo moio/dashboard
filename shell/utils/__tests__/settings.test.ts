@@ -3,7 +3,7 @@ import { SETTING } from '@shell/config/settings';
 import { ClusterProvisionerContext } from '@shell/core/types';
 
 describe('fx: isProviderEnabled', () => {
-  // Helper to create a mock context
+  // Helper to create a mock context with kev2-operators setting
   const createMockContext = (kev2SettingValue: string | null): ClusterProvisionerContext => {
     return {
       getters: {
@@ -16,6 +16,16 @@ describe('fx: isProviderEnabled', () => {
         }
       }
     } as unknown as ClusterProvisionerContext;
+  };
+
+  // Helper to create a mock context with a null setting resource
+  const createMockContextWithNullResource = (): ClusterProvisionerContext => {
+    return { getters: { 'management/byId': () => null } } as unknown as ClusterProvisionerContext;
+  };
+
+  // Helper to create a mock context with undefined setting value
+  const createMockContextWithUndefinedValue = (): ClusterProvisionerContext => {
+    return { getters: { 'management/byId': () => ({ value: undefined }) } } as unknown as ClusterProvisionerContext;
   };
 
   describe('when kev2-operators setting is not defined', () => {
@@ -112,14 +122,14 @@ describe('fx: isProviderEnabled', () => {
     });
 
     it('should handle when setting resource does not exist', () => {
-      const context = { getters: { 'management/byId': () => null } } as unknown as ClusterProvisionerContext;
+      const context = createMockContextWithNullResource();
 
       expect(isProviderEnabled(context, 'aks')).toBe(true);
       expect(isProviderEnabled(context, 'eks')).toBe(true);
     });
 
     it('should handle when setting value is undefined', () => {
-      const context = { getters: { 'management/byId': () => ({ value: undefined }) } } as unknown as ClusterProvisionerContext;
+      const context = createMockContextWithUndefinedValue();
 
       expect(isProviderEnabled(context, 'aks')).toBe(true);
     });
