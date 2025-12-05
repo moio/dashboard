@@ -1,3 +1,63 @@
 .CodeMirror {
   z-index: 0;
 }
+
+// Light mode CodeMirror color palette
+// See https://github.com/rancher/dashboard/issues/14668
+.theme-light {
+  .cm-s-base16-light {
+    span.cm-meta {
+      color: var(--body-text);
+    }
+
+    span.cm-string {
+      color: #00529F;
+    }
+
+    span.cm-number {
+      color: #005E3B;
+    }
+
+    span.cm-keyword {
+      color: #B94545;
+    }
+
+    span.cm-atom {
+      color: #921E80;
+    }
+
+    span.cm-comment {
+      color: #8F5536;
+    }
+  }
+}
+
+// Dark mode CodeMirror color palette
+// See https://github.com/rancher/dashboard/issues/14668
+.theme-dark {
+  .cm-s-base16-dark {
+    span.cm-meta {
+      color: var(--body-text);
+    }
+
+    span.cm-string {
+      color: #79B8FF;
+    }
+
+    span.cm-number {
+      color: #85E89D;
+    }
+
+    span.cm-keyword {
+      color: #F97583;
+    }
+
+    span.cm-atom {
+      color: #D1A0F0;
+    }
+
+    span.cm-comment {
+      color: #FFAB70;
+    }
+  }
+}
