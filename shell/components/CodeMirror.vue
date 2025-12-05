@@ -403,6 +403,7 @@ export default {
   }
 
   .code-mirror {
+    z-index: 0;
     position: relative;
     margin-bottom: 20px;
 
