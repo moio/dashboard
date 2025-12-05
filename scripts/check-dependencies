@@ -17,7 +17,15 @@
  *
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
+
+// Regular expression to validate npm package names
+// Based on npm package naming rules: https://docs.npmjs.com/cli/v9/configuring-npm/package-json#name
+const VALID_PACKAGE_NAME_REGEX = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+
+function isValidPackageName(name) {
+  return VALID_PACKAGE_NAME_REGEX.test(name);
+}
 
 // Simple shell colors
 const reset = '\x1b[0m';
@@ -37,25 +45,33 @@ function printUsage() {
 }
 
 function checkDependency(packageName) {
-  try {
-    const output = execSync(`yarn why "${ packageName }" 2>&1`, {
-      encoding:  'utf-8',
-      stdio:     ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-    });
-
-    // Check if the output indicates the package was NOT found
-    // yarn why outputs "error We couldn't find a match!" when package is not found
-    if (output.includes("We couldn't find a match")) {
-      return { found: false, output };
-    }
-
-    // If we got here, the package was found
-    return { found: true, output };
-  } catch (error) {
-    // yarn why can fail if the package is not found at all
-    return { found: false, output: error.message };
+  // Validate package name to prevent command injection
+  if (!isValidPackageName(packageName)) {
+    return {
+      found: false, output: `Invalid package name: ${ packageName }`, invalid: true
+    };
   }
+
+  // Use spawnSync with array arguments to prevent shell injection
+  const result = spawnSync('yarn', ['why', packageName], {
+    encoding:  'utf-8',
+    maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+  });
+
+  const output = (result.stdout || '') + (result.stderr || '');
+
+  // Check if the output indicates the package was NOT found
+  // yarn why outputs "error We couldn't find a match!" when package is not found
+  if (output.includes("We couldn't find a match")) {
+    return { found: false, output };
+  }
+
+  // If we got here without error and no "not found" message, the package was found
+  if (result.error) {
+    return { found: false, output: result.error.message };
+  }
+
+  return { found: true, output };
 }
 
 function main() {
@@ -81,13 +97,17 @@ function main() {
 
   const found = [];
   const notFound = [];
+  const invalid = [];
 
   args.forEach((packageName) => {
     console.log(`${ bold }Checking:${ reset } ${ cyan }${ packageName }${ reset }`); // eslint-disable-line no-console
 
     const result = checkDependency(packageName);
 
-    if (result.found) {
+    if (result.invalid) {
+      invalid.push(packageName);
+      console.log(`  ${ red }✗ Invalid package name${ reset }`); // eslint-disable-line no-console
+    } else if (result.found) {
       found.push({ name: packageName, output: result.output });
       console.log(`  ${ green }✓ Found${ reset }`); // eslint-disable-line no-console
     } else {
@@ -116,6 +136,14 @@ function main() {
     console.log(`${ yellow }Not found (${ notFound.length }):${ reset }`); // eslint-disable-line no-console
     notFound.forEach((name) => {
       console.log(`  ${ yellow }✗${ reset } ${ name }`); // eslint-disable-line no-console
+    });
+    console.log(''); // eslint-disable-line no-console
+  }
+
+  if (invalid.length > 0) {
+    console.log(`${ red }Invalid package names (${ invalid.length }):${ reset }`); // eslint-disable-line no-console
+    invalid.forEach((name) => {
+      console.log(`  ${ red }✗${ reset } ${ name }`); // eslint-disable-line no-console
     });
     console.log(''); // eslint-disable-line no-console
   }
