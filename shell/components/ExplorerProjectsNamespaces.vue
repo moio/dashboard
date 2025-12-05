@@ -59,7 +59,14 @@ export default {
     }
 
     await this.$fetchType(NAMESPACE);
-    this.projects = await this.$store.dispatch('management/findAll', { type: MANAGEMENT.PROJECT, opt: { force: true } });
+    // Fetch projects with checkPermissions=namespace to get per-project namespace creation permissions
+    this.projects = await this.$store.dispatch('management/findAll', {
+      type: MANAGEMENT.PROJECT,
+      opt:  {
+        force: true,
+        url:   `${ this.projectSchema.links.collection }?checkPermissions=namespace`
+      }
+    });
   },
 
   setup() {
@@ -379,6 +386,23 @@ export default {
 
       return !!project;
     },
+    /**
+     * Check if the user can create a namespace in the project associated with this group.
+     * For "Not in a Project" group or groups without a project, falls back to global namespace creation check.
+     * For project groups, checks the project's resourcePermissions.namespace.create which is populated
+     * when fetching projects with ?checkPermissions=namespace.
+     */
+    canCreateNamespaceInProject(group) {
+      const project = group.rows?.[0]?.project;
+
+      // For "Not in a Project" group or groups without a project, use the global schema check
+      if (!project) {
+        return this.isNamespaceCreatable;
+      }
+
+      // For project groups, check if the project has namespace creation permission
+      return project.canCreateNamespace;
+    },
     projectLabel(group) {
       const row = group.rows[0];
 
@@ -496,7 +520,7 @@ export default {
           </div>
           <div class="right mr-10">
             <router-link
-              v-if="isNamespaceCreatable && (canSeeProjectlessNamespaces || group.group.key !== notInProjectKey)"
+              v-if="canCreateNamespaceInProject(group.group) && (canSeeProjectlessNamespaces || group.group.key !== notInProjectKey)"
               class="create-namespace btn btn-sm role-secondary mr-5"
               :to="createNamespaceLocation(group.group)"
             >

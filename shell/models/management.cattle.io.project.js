@@ -180,6 +180,15 @@ export default class Project extends HybridModel {
     return true;
   }
 
+  /**
+   * Check if the user can create namespaces in this project.
+   * This relies on the project being fetched with ?checkPermissions=namespace
+   * which populates resourcePermissions.namespace.create if the user has permission.
+   */
+  get canCreateNamespace() {
+    return !!this.resourcePermissions?.namespace?.create;
+  }
+
   get glance() {
     const glance = [...this._glance];
 
