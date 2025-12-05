@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+
+/**
+ * This script checks if a list of dependencies is used in the project.
+ *
+ * It runs `yarn why <package>` for each package to determine if the dependency
+ * is used directly or indirectly.
+ *
+ * This is useful when checking for vulnerable dependencies to see if they
+ * affect this project.
+ *
+ * Usage:
+ *   ./scripts/check-dependencies <package1> [package2] [package3] ...
+ *
+ * Example:
+ *   ./scripts/check-dependencies lodash axios express
+ *
+ */
+
+const { execSync } = require('child_process');
+
+// Simple shell colors
+const reset = '\x1b[0m';
+const cyan = '\x1b[96m';
+const yellow = '\x1b[33m';
+const green = '\x1b[32m';
+const red = '\x1b[31m';
+const bold = '\x1b[1m';
+
+function printUsage() {
+  console.log(`${ bold }Usage:${ reset } ./scripts/check-dependencies <package1> [package2] [package3] ...`); // eslint-disable-line no-console
+  console.log(''); // eslint-disable-line no-console
+  console.log('Checks if the specified dependencies are used in the project.'); // eslint-disable-line no-console
+  console.log(''); // eslint-disable-line no-console
+  console.log(`${ bold }Example:${ reset }`); // eslint-disable-line no-console
+  console.log('  ./scripts/check-dependencies lodash axios express'); // eslint-disable-line no-console
+}
+
+function checkDependency(packageName) {
+  try {
+    const output = execSync(`yarn why "${ packageName }" 2>&1`, {
+      encoding:  'utf-8',
+      stdio:     ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    });
+
+    // Check if the output indicates the package was NOT found
+    // yarn why outputs "error We couldn't find a match!" when package is not found
+    if (output.includes("We couldn't find a match")) {
+      return { found: false, output };
+    }
+
+    // If we got here, the package was found
+    return { found: true, output };
+  } catch (error) {
+    // yarn why can fail if the package is not found at all
+    return { found: false, output: error.message };
+  }
+}
+
+function main() {
+  const args = process.argv.slice(2);
+
+  if (args.length === 0) {
+    console.log(`${ red }Error: No packages specified.${ reset }`); // eslint-disable-line no-console
+    console.log(''); // eslint-disable-line no-console
+    printUsage();
+    process.exit(1);
+  }
+
+  if (args.includes('--help') || args.includes('-h')) {
+    printUsage();
+    process.exit(0);
+  }
+
+  console.log(''); // eslint-disable-line no-console
+  console.log('======================================'); // eslint-disable-line no-console
+  console.log(`${ cyan }Checking dependencies${ reset }`); // eslint-disable-line no-console
+  console.log('======================================'); // eslint-disable-line no-console
+  console.log(''); // eslint-disable-line no-console
+
+  const found = [];
+  const notFound = [];
+
+  args.forEach((packageName) => {
+    console.log(`${ bold }Checking:${ reset } ${ cyan }${ packageName }${ reset }`); // eslint-disable-line no-console
+
+    const result = checkDependency(packageName);
+
+    if (result.found) {
+      found.push({ name: packageName, output: result.output });
+      console.log(`  ${ green }✓ Found${ reset }`); // eslint-disable-line no-console
+    } else {
+      notFound.push(packageName);
+      console.log(`  ${ yellow }✗ Not found${ reset }`); // eslint-disable-line no-console
+    }
+
+    console.log(''); // eslint-disable-line no-console
+  });
+
+  // Summary
+  console.log('======================================'); // eslint-disable-line no-console
+  console.log(`${ bold }Summary${ reset }`); // eslint-disable-line no-console
+  console.log('======================================'); // eslint-disable-line no-console
+  console.log(''); // eslint-disable-line no-console
+
+  if (found.length > 0) {
+    console.log(`${ green }Found (${ found.length }):${ reset }`); // eslint-disable-line no-console
+    found.forEach((pkg) => {
+      console.log(`  ${ green }✓${ reset } ${ pkg.name }`); // eslint-disable-line no-console
+    });
+    console.log(''); // eslint-disable-line no-console
+  }
+
+  if (notFound.length > 0) {
+    console.log(`${ yellow }Not found (${ notFound.length }):${ reset }`); // eslint-disable-line no-console
+    notFound.forEach((name) => {
+      console.log(`  ${ yellow }✗${ reset } ${ name }`); // eslint-disable-line no-console
+    });
+    console.log(''); // eslint-disable-line no-console
+  }
+
+  // Show detailed output for found packages
+  if (found.length > 0) {
+    console.log('======================================'); // eslint-disable-line no-console
+    console.log(`${ bold }Details for found packages${ reset }`); // eslint-disable-line no-console
+    console.log('======================================'); // eslint-disable-line no-console
+
+    found.forEach((pkg) => {
+      console.log(''); // eslint-disable-line no-console
+      console.log(`${ cyan }${ bold }${ pkg.name }:${ reset }`); // eslint-disable-line no-console
+      console.log(pkg.output.trim()); // eslint-disable-line no-console
+    });
+  }
+
+  console.log(''); // eslint-disable-line no-console
+
+  // Exit with code 1 if any packages were found (indicating potential vulnerability exposure)
+  process.exit(found.length > 0 ? 1 : 0);
+}
+
+main();
